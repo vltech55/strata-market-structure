@@ -1,0 +1,113 @@
+name: strata
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-strata}
+      POSTGRES_USER: ${POSTGRES_USER:-strata}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-strata}
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-strata}"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis-data:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+    ports:
+      - "9000:9000"   # S3 API
+      - "9001:9001"   # console
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 15s
+      timeout: 3s
+      retries: 5
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file: .env
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-strata}:${POSTGRES_PASSWORD:-strata}@postgres:5432/${POSTGRES_DB:-strata}
+      REDIS_URL: redis://redis:6379/0
+      MINIO_ENDPOINT: minio:9000
+    volumes:
+      - ./keys:/app/keys:ro
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis:    { condition: service_healthy }
+      minio:    { condition: service_healthy }
+
+  worker:
+    build: { context: ., dockerfile: Dockerfile }
+    env_file: .env
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-strata}:${POSTGRES_PASSWORD:-strata}@postgres:5432/${POSTGRES_DB:-strata}
+      REDIS_URL: redis://redis:6379/0
+    command: ["celery", "-A", "strata", "worker", "-l", "info", "--concurrency=4"]
+    volumes:
+      - ./keys:/app/keys:ro
+    depends_on:
+      backend: { condition: service_started }
+
+  beat:
+    build: { context: ., dockerfile: Dockerfile }
+    env_file: .env
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-strata}:${POSTGRES_PASSWORD:-strata}@postgres:5432/${POSTGRES_DB:-strata}
+      REDIS_URL: redis://redis:6379/0
+    command: ["celery", "-A", "strata", "beat", "-l", "info", "--scheduler", "django_celery_beat.schedulers:DatabaseScheduler"]
+    depends_on:
+      worker: { condition: service_started }
+
+  flower:
+    build: { context: ., dockerfile: Dockerfile }
+    env_file: .env
+    environment:
+      REDIS_URL: redis://redis:6379/0
+    command: ["celery", "-A", "strata", "flower", "--port=5555"]
+    ports: ["5555:5555"]
+    depends_on:
+      worker: { condition: service_started }
+
+  streamlit:
+    build: { context: ., dockerfile: Dockerfile }
+    env_file: .env
+    environment:
+      STRATA_API_URL: http://backend:8000/api
+    command: ["streamlit", "run", "/app/frontend/app.py", "--server.address=0.0.0.0", "--server.port=8501"]
+    ports: ["8501:8501"]
+    depends_on:
+      backend: { condition: service_started }
+
+volumes:
+  pg-data:
+  redis-data:
+  minio-data:
