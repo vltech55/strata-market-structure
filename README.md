@@ -1,8 +1,8 @@
 <div align="center">
 
-# Strata — Crypto Market-Structure Analyst
+# Strata
 
-**Production-grade market-structure analysis for crypto: real-time OHLCV ingestion, algorithmic swing / Break-of-Structure / Change-of-Character / Wyckoff detection, a multi-agent LLM pipeline that produces grounded market summaries, and an interactive Streamlit + Plotly workspace — all backed by an async Django 5 + django-ninja REST API.**
+**Production-grade market-structure analysis for crypto. Real-time OHLCV ingestion, algorithmic swing / Break-of-Structure / Change-of-Character / Wyckoff detection, a multi-agent LLM pipeline that produces grounded market summaries, and an interactive Streamlit + Plotly workspace — all backed by an async Django 5 + django-ninja REST API.**
 
 [![Python 3.13](https://img.shields.io/badge/python-3.13-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![Django 5](https://img.shields.io/badge/Django-5-092E20?logo=django&logoColor=white)](https://www.djangoproject.com/)
@@ -16,11 +16,25 @@
 
 </div>
 
-## What it does
+---
 
-Strata ingests OHLCV candles from Bybit, applies a pipeline of pandas-native algorithms to detect **swing pivots, Breaks of Structure (BoS), Changes of Character (CHoCH), Wyckoff accumulation/distribution phases, order blocks, and fair-value gaps**, then asks a **LangGraph multi-agent pipeline** to convert those structured findings into a grounded natural-language market briefing. Users explore symbols and timeframes through a **Streamlit + Plotly workspace** with chart overlays for every detection, and can ask follow-up questions in a chat panel that has the full structure context.
+## Table of Contents
 
-A separate **backtest harness** replays the same detectors over historical data to produce hit-rate / drawdown / payoff numbers per symbol/timeframe, so changes to the algorithms can be evaluated objectively rather than by visual inspection.
+- [Overview](#overview)
+- [Features](#features)
+- [Screenshots](#screenshots)
+- [Tech Stack](#tech-stack)
+- [Architecture](#architecture)
+- [Installation](#installation)
+- [Testing](#testing)
+- [Author](#author)
+- [License](#license)
+
+## Overview
+
+Strata ingests OHLCV candles from Bybit, applies a pipeline of pandas-native algorithms to detect swing pivots, Breaks of Structure (BoS), Changes of Character (CHoCH), Wyckoff accumulation/distribution phases, order blocks, and fair-value gaps, then asks a LangGraph multi-agent pipeline to convert those structured findings into a grounded natural-language market briefing. Users explore symbols and timeframes through a Streamlit + Plotly workspace with chart overlays for every detection, and can ask follow-up questions in a chat panel that has the full structure context.
+
+A separate backtest harness replays the same detectors over historical data to produce hit-rate / drawdown / payoff numbers per symbol/timeframe, so changes to the algorithms can be evaluated objectively rather than by visual inspection.
 
 ## Features
 
@@ -51,10 +65,10 @@ A separate **backtest harness** replays the same detectors over historical data 
 </tr>
 </table>
 
-## Stack
+## Tech Stack
 
-| Layer            | Tech |
-|------------------|------|
+| Layer            | Technology |
+|------------------|------------|
 | Backend          | Python 3.13, Django 5 (async), django-ninja, Pydantic v2, SQLAlchemy-style custom managers on Django ORM |
 | Database         | PostgreSQL 16 (psycopg3, async driver), Alembic-style Django migrations |
 | Task layer       | Celery + Redis (broker + result backend), celery-beat, durable retry with backoff |
@@ -64,7 +78,7 @@ A separate **backtest harness** replays the same detectors over historical data 
 | Auth             | JWT RS256 via `python-jose` and `cryptography`, access + refresh token rotation |
 | Object storage   | MinIO (S3-compatible) for chart snapshots and report artifacts |
 | Observability    | Langfuse (LLM), OpenTelemetry (HTTP + Celery), Sentry (errors), structlog (JSON) |
-| Ops              | Multi-stage Dockerfile, docker compose, uWSGI, pre-commit, ruff, mypy, pytest |
+| Operations       | Multi-stage Dockerfile, docker compose, uWSGI, pre-commit, ruff, mypy, pytest |
 
 ## Architecture
 
@@ -103,10 +117,10 @@ A separate **backtest harness** replays the same detectors over historical data 
         Sentry · OpenTelemetry (HTTP + Celery)  ───────────────────────────────┘
 ```
 
-## Run locally
+## Installation
 
 ```bash
-git clone https://github.com/vltech55/strata-market-structure
+git clone https://github.com/vltech55/strata-market-structure.git
 cd strata-market-structure
 cp .env.example .env       # add OPENAI_API_KEY, optional LANGFUSE_* and SENTRY_DSN
 make keys                  # generate the RS256 keypair into ./keys/
@@ -123,7 +137,7 @@ docker compose exec backend python manage.py createsuperuser
 
 A `Makefile` provides the rest: `make test`, `make lint`, `make fmt`, `make backtest`, `make seed`.
 
-## Tests
+## Testing
 
 ```bash
 docker compose exec backend pytest
@@ -131,6 +145,12 @@ docker compose exec backend pytest
 
 The headline tests are in `backend/tests/test_structure_detection.py` — they exercise the swing/BoS/CHoCH/Wyckoff detectors against synthesized OHLCV fixtures with known answers, including pathological cases (flat price, single bar, all-up / all-down series, gap candles). The AI pipeline has a smoke test that runs the LangGraph against a mock OpenAI client to verify state flow and output schema validation without burning tokens.
 
+## Author
+
+**Vlad L.** — independent senior engineer specializing in production-grade LLM systems (RAG, agents, gateways, multi-tenant SaaS).
+
+[![GitHub](https://img.shields.io/badge/GitHub-vltech55-181717?logo=github)](https://github.com/vltech55)
+
 ## License
 
-MIT
+[MIT](LICENSE) © Vlad L.
